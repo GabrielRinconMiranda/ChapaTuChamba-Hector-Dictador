@@ -1,0 +1,18 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* pequeñas utilidades y ajustes para el tema oscuro */
+html, body, #root {
+  height: 100%;
+  background: #0b0b0c; /* fallback */
+}
+
+/* Optional: clamp the card description */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
