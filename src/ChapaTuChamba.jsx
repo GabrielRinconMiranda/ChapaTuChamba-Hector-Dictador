@@ -162,41 +162,6 @@ async function refreshJobs() {
     localStorage.setItem(STORAGE.APPLICATIONS, JSON.stringify(activeApplications));
   }, [activeApplications]);
 
-
-  // --- NUEVO: Lógica del Temporizador (Filtrar ofertas según tiempo de expiración) ---
-  useEffect(() => {
-    const checkExpiration = () => {
-      // Simulación de que los trabajos de ID par/impar "expiran" alternativamente
-      setJobs(prevJobs => {
-        // En un sistema real: `prevJobs.filter(j => new Date(j.expiresAt) > new Date())`
-        const remainingJobs = prevJobs.filter((j, index) => index % 3 !== 0);
-        
-        const expiredCount = prevJobs.length - remainingJobs.length;
-        if (expiredCount > 0) {
-           setNotifications((prev) => [
-            {
-              id: Date.now() + 1,
-              title: 'Limpieza Automática',
-              message: `${expiredCount} ofertas expiradas eliminadas del sistema.`,
-              time: 'Automático',
-              unread: true,
-            },
-            ...prev,
-          ]);
-        }
-        localStorage.setItem(STORAGE.JOBS_CACHE, JSON.stringify(remainingJobs));
-        return remainingJobs;
-      });
-    };
-
-    // Correr cada 60 minutos (3,600,000 ms) - O 1 minuto para pruebas: 60000
-    const intervalId = setInterval(checkExpiration, 3600000); 
-
-    // Función de limpieza
-    return () => clearInterval(intervalId);
-  }, [jobs]);
-
-
   // --- Autenticación ---
   function handleLogin(email, pass) {
     if (!email || !pass) return alert('Email y contraseña requeridos');
