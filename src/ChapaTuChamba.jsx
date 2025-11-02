@@ -76,7 +76,7 @@ export default function ChapaTuChamba() {
   // --- UI ---
   const [searchTerm, setSearchTerm] = useState('');
 
-  // --- Inicialización ---
+  // --- Inicialización (Jobs o general creo) ---
   useEffect(() => {
     async function seed() {
       if (!sources || sources.length === 0) {
@@ -96,11 +96,16 @@ export default function ChapaTuChamba() {
   }, []);
   
 
-  async function refreshJobs() {
-    const fetched = await getJobs();
+// --- Refrescar jobs combinando reales y simulados ---
+async function refreshJobs() {
+  try {
+    const fetched = await getJobs(); // trae reales + simuladas + cache
     setJobs(fetched);
     localStorage.setItem(STORAGE.JOBS_CACHE, JSON.stringify(fetched));
+  } catch (e) {
+    console.error("Error refrescando jobs:", e);
   }
+} 
 
   // --- Persistencia ---
   useEffect(() => {
@@ -168,45 +173,58 @@ export default function ChapaTuChamba() {
     setSources((prev) => prev.filter((x) => x.id !== s.id));
   }
 
-  async function verifySource(s) {
-    try {
-      let result = [];
-      if (['remotive', 'remoteok'].includes(s.type)) {
-        result = await getJobs();
-      } else {
-        const res = await fetch(s.url);
-        const json = await res.json();
-        if (Array.isArray(json)) result = json;
-      }
-      setSources((prev) =>
-        prev.map((x) =>
-          x.id === s.id
-            ? { ...x, verified: true, lastChecked: new Date().toISOString() }
-            : x
-        )
-      );
-      refreshJobs();
-      setNotifications((prev) => [
-        {
-          id: Date.now(),
-          title: 'Fuente verificada',
-          message: `${s.name} verificada`,
-          time: 'Ahora',
-          unread: true,
-        },
-        ...prev,
-      ]);
-    } catch (e) {
-      alert('Error verificando: ' + e.message);
-      setSources((prev) =>
-        prev.map((x) =>
-          x.id === s.id
-            ? { ...x, verified: false, lastChecked: new Date().toISOString() }
-            : x
-        )
-      );
+// --- Verificar fuente individual ---
+async function verifySource(s) {
+  try {
+    let result = [];
+    if (['remotive', 'remoteok'].includes(s.type)) {
+      result = await getJobs(); // traer reales + simuladas
+    } else {
+      const res = await fetch(s.url);
+      const json = await res.json();
+      if (Array.isArray(json)) result = json;
     }
+
+    setSources((prev) =>
+      prev.map((x) =>
+        x.id === s.id
+          ? { ...x, verified: true, lastChecked: new Date().toISOString() }
+          : x
+      )
+    );
+
+    // Actualizar jobs con los nuevos resultados sin duplicar
+    setJobs((prevJobs) => {
+      const combined = [...prevJobs];
+      result.forEach(r => {
+        if (!combined.find(j => j.id === r.id)) combined.push(r);
+      });
+      localStorage.setItem(STORAGE.JOBS_CACHE, JSON.stringify(combined));
+      return combined;
+    });
+
+    setNotifications((prev) => [
+      {
+        id: Date.now(),
+        title: 'Fuente verificada',
+        message: `${s.name} verificada`,
+        time: 'Ahora',
+        unread: true,
+      },
+      ...prev,
+    ]);
+  } catch (e) {
+    alert('Error verificando: ' + e.message);
+    setSources((prev) =>
+      prev.map((x) =>
+        x.id === s.id
+          ? { ...x, verified: false, lastChecked: new Date().toISOString() }
+          : x
+      )
+    );
   }
+}
+
 
   function toggleTrust(s) {
     setSources((prev) =>
