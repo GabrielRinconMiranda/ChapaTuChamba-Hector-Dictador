@@ -155,7 +155,7 @@ async function refreshJobs() {
     setCurrentView('login');
   }
 
-  // --- Fuentes (admin) ---
+  // --- Fuentes (administrador) ---
   function addSource(src) {
     const item = {
       id: Date.now().toString(),
@@ -264,7 +264,7 @@ async function verifySource(s) {
   function saveJob(id) {
     setSavedJobs((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [id, ...prev]
-    );
+    ); 
   }
 
   function removeSaved(id) {
