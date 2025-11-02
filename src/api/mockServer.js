@@ -1,6 +1,6 @@
-// src/api/mockServer.js
+// src/api/mockServer.js - Versión FINAL con 4 fuentes reales (requiere proxy de Vite)
 
-// Función auxiliar para simular una categoría basada en el título del trabajo
+// Función auxiliar para asignar una categoría basada en el título (necesaria para el filtrado)
 const getMockCategory = (title) => {
   const t = title ? title.toLowerCase() : '';
   if (t.includes('data') || t.includes('analyst')) return 'Data Science';
@@ -13,11 +13,11 @@ const getMockCategory = (title) => {
 
 export async function getJobs() {
 try {
-  // Rutas Proxy
+  // Rutas Proxy (correctas para Vite)
   const remotiveURL = "/api/remotive"; 
   const remoteokURL = "/api/remoteok";
-  const wwrURL = "/api/wwr";     // NUEVO
-  const jobicyURL = "/api/jobicy"; // NUEVO
+  const wwrURL = "/api/wwr";     
+  const jobicyURL = "/api/jobicy"; 
 
   const [remotiveRes, remoteokRes, wwrRes, jobicyRes] = await Promise.allSettled([
     fetch(remotiveURL),
@@ -39,7 +39,7 @@ try {
         location: j.candidate_required_location || "Remoto",
         url: j.url,
         source: "Remotive",
-        category: getMockCategory(j.title), // ETIQUETADO PARA FILTRO
+        category: getMockCategory(j.title),
       }))
     );
   }
@@ -58,12 +58,12 @@ try {
           location: j.location || "Remoto",
           url: j.url,
           source: "RemoteOK",
-          category: getMockCategory(j.position || j.title), // ETIQUETADO PARA FILTRO
+          category: getMockCategory(j.position || j.title),
         }))
     );
   }
   
-  // 🔥 --- Procesar WeWorkRemotely (WWR) --- 🔥
+  // --- Procesar WeWorkRemotely (WWR) ---
   if (wwrRes.status === "fulfilled" && wwrRes.value.ok) {
       const wwrData = await wwrRes.value.json();
       offers.push(
@@ -74,15 +74,14 @@ try {
               location: "Remoto (WWR)",
               url: j.url,
               source: "WeWorkRemotely",
-              category: getMockCategory(j.title), // ETIQUETADO PARA FILTRO
+              category: getMockCategory(j.title),
           }))
       );
   }
 
-  // 🔥 --- Procesar Jobicy (JBY) --- 🔥
+  // --- Procesar Jobicy (JBY) ---
   if (jobicyRes.status === "fulfilled" && jobicyRes.value.ok) {
       const jobicyData = await jobicyRes.value.json();
-      // Nota: Jobicy devuelve los trabajos bajo la clave 'remote-jobs'
       offers.push(
           ...jobicyData['remote-jobs'].slice(0, 10).map((j) => ({
               id: "jobicy-" + j.id,
@@ -91,23 +90,25 @@ try {
               location: j.jobType || "Remoto (Jobicy)",
               url: j.url,
               source: "Jobicy",
-              category: getMockCategory(j.jobTitle), // ETIQUETADO PARA FILTRO
+              category: getMockCategory(j.jobTitle),
           }))
       );
   }
 
-  // --- Lógica de Caché y Fallback (Asegurar que el fallback también tenga categorías) ---
-  // ... (El resto del código de caché y fallback queda igual, pero asegúrate de que los objetos mock tengan 'category')
-  
+  // --- Lógica de Caché y Fallback ---
+  // Si la obtención de datos falló (lo que ocurre en StackBlitz), se usa la caché o el fallback.
   if (!offers.length) {
-    // ... (código para usar la caché) ...
+    const cached = JSON.parse(localStorage.getItem("ctc_jobs_cache_v1") || "[]");
+    if (cached.length) {
+      console.warn("⚠️ Fallo de red. Usando caché local.");
+      return cached;
+    }
   }
 
   if (!offers.length) {
     console.warn("⚠️ No se pudieron cargar las ofertas, usando ejemplos locales.");
     offers = [
-      // Asegúrate de que los fallbacks tengan categorías:
-      { id: "mock-1", title: "Desarrollador React", company: "TechNova", location: "Remoto", url: "#", source: "Simulado", category: "Desarrollo" },
+      { id: "mock-1", title: "Desarrollador React", company: "TechNova", location: "Remoto", url: "#", source: "Simulado", category: "Desarrollo" }, 
       { id: "mock-2", title: "Diseñador UX/UI", company: "InnovaSoft", location: "Lima, Perú", url: "#", source: "Simulado", category: "Diseño" },
     ];
   }
@@ -116,19 +117,17 @@ try {
   return offers;
 
 } catch (error) {
-  // ... (Manejo de errores y retorno de caché) ...
-  console.error("❌ Error general en getJobs:", error);
+  // Retornar caché ante cualquier error de conexión
+  console.error("❌ Error general en getJobs. Retornando caché:", error);
   const cached = JSON.parse(localStorage.getItem("ctc_jobs_cache_v1") || "[]");
-  return (
-    cached.length
+  return cached.length
       ? cached
       : [
-          { id: "mock-1", title: "Desarrollador React", company: "TechNova", location: "Remoto", url: "#", source: "Simulado", category: "Desarrollo" },
-          { id: "mock-2", title: "Backend Node.js", company: "InnovaSoft", location: "Lima, Perú", url: "#", source: "Simulado", category: "Desarrollo" },
-        ]
-  );
+          { id: "mock-fallback-1", title: "Fallback Job", company: "Fallback Co", location: "Remoto", url: "#", source: "Simulado", category: "Desarrollo" },
+        ];
 }
 }
+// ... (getSources permanece sin cambios)
 
 export async function getSources() {
   return [

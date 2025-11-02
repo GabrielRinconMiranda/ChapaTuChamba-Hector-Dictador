@@ -1,10 +1,7 @@
-// vite.config.js (Modificación: Añadir opciones de conexión al proxy)
+// vite.config.js
 
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-
-// Valor en milisegundos para el timeout (ej: 30 segundos)
-const PROXY_TIMEOUT = 30000; 
 
 export default defineConfig({
   plugins: [react()],
@@ -13,37 +10,27 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     
+    // CONFIGURACIÓN PROXY FINAL (PARA USO LOCAL)
     proxy: {
-      // Configuraciones base para todas las APIs
       '/api/remotive': {
         target: 'https://remotive.io', 
         changeOrigin: true,            
-        rewrite: (path) => path.replace('/api/remotive', '/api/remote-jobs'),
-        // 🔥 AÑADIR CONFIGURACIÓN DE TIME-OUT/SEGURIDAD 🔥
-        proxyTimeout: PROXY_TIMEOUT,
-        secure: false, // Ignorar posibles errores de SSL/TLS
+        rewrite: (path) => path.replace('/api/remotive', '/api/remote-jobs'), 
       },
       '/api/remoteok': {
         target: 'https://remoteok.io', 
         changeOrigin: true,
         rewrite: (path) => path.replace('/api/remoteok', '/api'),
-        // 🔥 AÑADIR CONFIGURACIÓN DE TIME-OUT/SEGURIDAD 🔥
-        proxyTimeout: PROXY_TIMEOUT,
-        secure: false,
       },
       '/api/wwr': {
         target: 'https://weworkremotely.com', 
         changeOrigin: true,
         rewrite: (path) => path.replace('/api/wwr', '/api/v1/jobs/latest'),
-        proxyTimeout: PROXY_TIMEOUT,
-        secure: false,
       },
       '/api/jobicy': {
         target: 'https://jobicy.com', 
         changeOrigin: true,
         rewrite: (path) => path.replace('/api/jobicy', '/api/v2/remote-jobs'),
-        proxyTimeout: PROXY_TIMEOUT,
-        secure: false,
       },
     },
   },
