@@ -1,7 +1,10 @@
-// vite.config.js
+// vite.config.js (Modificación: Añadir opciones de conexión al proxy)
 
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+
+// Valor en milisegundos para el timeout (ej: 30 segundos)
+const PROXY_TIMEOUT = 30000; 
 
 export default defineConfig({
   plugins: [react()],
@@ -10,32 +13,37 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     
-    // CONFIGURACIÓN DEL PROXY ANTI-CORS ACTUALIZADA
     proxy: {
-      // Fuentes existentes
+      // Configuraciones base para todas las APIs
       '/api/remotive': {
         target: 'https://remotive.io', 
         changeOrigin: true,            
-        rewrite: (path) => path.replace('/api/remotive', '/api/remote-jobs'), 
+        rewrite: (path) => path.replace('/api/remotive', '/api/remote-jobs'),
+        // 🔥 AÑADIR CONFIGURACIÓN DE TIME-OUT/SEGURIDAD 🔥
+        proxyTimeout: PROXY_TIMEOUT,
+        secure: false, // Ignorar posibles errores de SSL/TLS
       },
       '/api/remoteok': {
         target: 'https://remoteok.io', 
         changeOrigin: true,
         rewrite: (path) => path.replace('/api/remoteok', '/api'),
+        // 🔥 AÑADIR CONFIGURACIÓN DE TIME-OUT/SEGURIDAD 🔥
+        proxyTimeout: PROXY_TIMEOUT,
+        secure: false,
       },
-      
-      // 🔥 NUEVAS FUENTES 🔥
-      // 1. Proxy para WeWorkRemotely (WWR)
       '/api/wwr': {
         target: 'https://weworkremotely.com', 
         changeOrigin: true,
         rewrite: (path) => path.replace('/api/wwr', '/api/v1/jobs/latest'),
+        proxyTimeout: PROXY_TIMEOUT,
+        secure: false,
       },
-      // 2. Proxy para Jobicy (JBY)
       '/api/jobicy': {
         target: 'https://jobicy.com', 
         changeOrigin: true,
         rewrite: (path) => path.replace('/api/jobicy', '/api/v2/remote-jobs'),
+        proxyTimeout: PROXY_TIMEOUT,
+        secure: false,
       },
     },
   },
