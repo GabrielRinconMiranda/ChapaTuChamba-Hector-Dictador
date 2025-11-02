@@ -556,18 +556,19 @@ async function verifySource(s) {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {currentView === 'dashboard' && (
-          <DashboardView
-            jobs={visibleJobs}
-            onSave={saveJob}
-            savedJobs={savedJobs}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            // NUEVO: Pasar lógica de postulación
-            onApply={handleApplyJob}
+    <div className="max-w-7xl mx-auto px-4 py-6">
+      {currentView === 'dashboard' && (
+        <DashboardView
+          jobs={visibleJobs}
+          onSave={saveJob}
+          savedJobs={savedJobs}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          onApply={handleApplyJob}
+          activeApplications={activeApplications} // <-- NUEVO: Para el botón "Ya Postulaste"
+          categories={categories} // <-- NUEVO: Para el filtro lateral
           />
-        )}
+      )}
 
         {/* MODIFICADO: SavedJobsView ahora muestra Guardados Y Postulaciones Activas */}
         {currentView === 'saved' && (
@@ -627,6 +628,7 @@ async function verifySource(s) {
               </div>
             </div>
           )}
+        
       </div>
     </div>
   );

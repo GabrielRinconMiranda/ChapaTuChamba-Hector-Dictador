@@ -2,10 +2,8 @@
 
 import React, { useState } from "react";
 import { Zap, Tag, Heart } from "lucide-react";
-// Se asume que JobCard y SearchBar existen o se sustituyen por la implementación interna
-// import JobCard from "../components/JobCard.jsx"; 
-// import SearchBar from "../components/SearchBar.jsx"; 
-// Se eliminan imports redundantes: DashboardMenu, ProfileView
+import JobCard from "../components/JobCard.jsx"; // <-- Aseguramos el import real
+import SearchBar from "../components/SearchBar.jsx"; // <-- Aseguramos el import real
 
 /**
  * Vista principal de exploración de ofertas.
@@ -20,8 +18,9 @@ export default function DashboardView({
   savedJobs,
   searchTerm,
   setSearchTerm,
-  onApply, // NUEVO: Función para Postular a una oferta
-  categories, // NUEVO: Lista de categorías (desde ChapaTuChamba)
+  onApply, 
+  categories, 
+  activeApplications, // <-- CRÍTICO: NUEVA PROP para la lógica de Postulación
 }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
 
@@ -35,29 +34,8 @@ export default function DashboardView({
     return (job.category || '').toLowerCase() === selectedCategory.toLowerCase();
   });
 
-  // --- Componente Auxiliar (Simulación de JobCard) para asegurar la acción de postular ---
-  const JobItem = ({ job, onSave, saved, onApply }) => (
-    <div className="bg-gray-900 p-5 rounded-lg border border-gray-800 shadow-md">
-      <h3 className="text-xl font-semibold text-rose-400 mb-2">{job.title}</h3>
-      <p className="text-sm text-gray-400">{job.company} | Fuente: {job.source} {job.category && `| Categoría: ${job.category}`}</p>
-      <p className="text-gray-300 mt-3 text-sm line-clamp-3">{job.description || 'No hay descripción disponible.'}</p>
-      <div className="mt-4 flex justify-between items-center">
-        <button
-          onClick={() => onSave(job.id)}
-          className={`text-sm font-medium transition-colors flex items-center gap-1 ${saved ? 'text-rose-500' : 'text-gray-500 hover:text-rose-500'}`}
-        >
-           <Heart className={`w-5 h-5 ${saved ? 'fill-rose-500' : ''}`} /> {saved ? 'Guardado' : 'Guardar'}
-        </button>
-        {/* Caso de Uso: Postular a una oferta */}
-        <button
-          onClick={() => onApply(job.id)}
-          className="bg-rose-600 hover:bg-rose-700 text-white text-sm px-4 py-2 rounded font-medium"
-        >
-          Postular ahora
-        </button>
-      </div>
-    </div>
-  );
+  // --- SE ELIMINA EL COMPONENTE AUXILIAR JobItem ---
+  // Ahora usaremos el JobCard real
 
   return (
     <div className="grid lg:grid-cols-4 gap-6">
@@ -92,12 +70,12 @@ export default function DashboardView({
             <Zap className="w-7 h-7 text-rose-500" /> Explorar Ofertas
         </h2>
 
-        {/* SearchBar - Debes asegurar que este componente exista */}
-        {/* <SearchBar
+        {/* Agregamos el SearchBar real */}
+        <SearchBar
           query={searchTerm}
           onChange={setSearchTerm}
           onSubmit={(e) => e.preventDefault()}
-        /> */}
+        />
 
         {finalFilteredJobs.length === 0 ? (
           <div className="text-gray-500 text-sm text-center py-10 bg-gray-900 rounded-lg border border-gray-800">
@@ -105,15 +83,22 @@ export default function DashboardView({
           </div>
         ) : (
           <div className="grid gap-4">
-            {finalFilteredJobs.map((job) => (
-              <JobItem
-                key={job.id}
-                job={job}
-                onSave={onSave}
-                saved={savedJobs.includes(job.id)}
-                onApply={onApply} // Postular a una oferta
-              />
-            ))}
+            {finalFilteredJobs.map((job) => {
+                // <-- Lógica CRÍTICA: Calcular si ya postuló
+                const isApplied = activeApplications.some(app => app.jobId === job.id);
+                
+                return (
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    onSave={onSave}
+                    saved={savedJobs.includes(job.id)}
+                    onApply={onApply} // Postular a una oferta
+                    isApplied={isApplied} // <-- Pasar el estado al JobCard
+                    // isSavedJobCard: por defecto es false, no se pasa
+                  />
+                )
+            })}
           </div>
         )}
       </section>

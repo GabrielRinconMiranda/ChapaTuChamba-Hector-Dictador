@@ -89,6 +89,8 @@ export default function SavedJobsView({
                   job={job}
                   saved={true}
                   onSave={onRemoveSaved} // Función para remover de guardados
+                  // AÑADIR ESTA PROP:
+                  isSavedJobCard={true} // <-- Indica al JobCard que no muestre el botón "Postular"
                 />
               ))}
             </div>
