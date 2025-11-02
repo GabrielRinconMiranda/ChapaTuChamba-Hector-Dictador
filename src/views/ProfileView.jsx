@@ -1,44 +1,62 @@
+// src/views/ProfileView.jsx
+
 import React, { useState } from "react";
 import { User, Settings, Trash2, Save } from "lucide-react";
 
-export default function ProfileView({ user, onUpdate, onDelete }) {
+/**
+ * Componente para la gestión del perfil.
+ * Implementa los casos de uso:
+ * - Actualizar información personal (Pestaña "Información personal")
+ * - Actualizar preferencias del servicio (Pestaña "Preferencias del servicio")
+ * - Eliminar perfil (Pestaña "Eliminar perfil")
+ * * @param {object} profile El objeto de perfil completo con sub-estructuras personal y preferences.
+ * @param {function} onUpdate Callback para actualizar el perfil completo.
+ * @param {function} onDelete Callback para eliminar el perfil.
+ */
+export default function ProfileView({ profile, onUpdate, onDelete }) {
   const [section, setSection] = useState("info");
+
+  // El estado ahora refleja la estructura anidada que se maneja en ChapaTuChamba.jsx
   const [formData, setFormData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
-    location: user?.location || "",
-    servicePrefs: user?.servicePrefs || {
-      emailNotifications: true,
-      jobAlerts: true,
-      newsletter: false,
-    },
+    personal: profile?.personal || {},
+    preferences: profile?.preferences || { notifications: {}, filter: {} },
   });
 
-  const handleChange = (field, value) => {
+  // Handler para campos de la sección 'personal'
+  const handlePersonalChange = (field, value) => {
     setFormData((prev) => ({
       ...prev,
-      [field]: value,
+      personal: {
+        ...prev.personal,
+        [field]: value,
+      },
     }));
   };
 
-  const handlePrefChange = (key) => {
+  // Handler para campos de la sección 'preferences' (notificaciones o filtros)
+  const handlePreferenceChange = (sectionKey, key) => {
     setFormData((prev) => ({
       ...prev,
-      servicePrefs: {
-        ...prev.servicePrefs,
-        [key]: !prev.servicePrefs[key],
+      preferences: {
+        ...prev.preferences,
+        [sectionKey]: {
+          ...prev.preferences[sectionKey],
+          [key]: !prev.preferences[sectionKey][key], // Alternar booleano
+        },
       },
     }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    // **Caso de uso: Actualizar perfil (Generalización)**
+    // Se envía el objeto completo con la estructura correcta a ChapaTuChamba
     if (onUpdate) onUpdate(formData);
     alert("Perfil actualizado correctamente ✅");
   };
 
   const confirmDelete = () => {
+    // **Caso de uso: Eliminar perfil**
     if (window.confirm("¿Seguro que deseas eliminar tu perfil? Esta acción no se puede deshacer.")) {
       onDelete?.();
     }
@@ -52,6 +70,7 @@ export default function ProfileView({ user, onUpdate, onDelete }) {
 
       {/* Pestañas */}
       <div className="flex gap-3 mb-6">
+        {/* Actualizar información personal */}
         <button
           className={`px-3 py-2 rounded ${
             section === "info" ? "bg-gray-800 text-white" : "text-gray-400 hover:text-gray-200"
@@ -60,6 +79,7 @@ export default function ProfileView({ user, onUpdate, onDelete }) {
         >
           Información personal
         </button>
+        {/* Actualizar preferencias del servicio */}
         <button
           className={`px-3 py-2 rounded ${
             section === "prefs" ? "bg-gray-800 text-white" : "text-gray-400 hover:text-gray-200"
@@ -68,6 +88,7 @@ export default function ProfileView({ user, onUpdate, onDelete }) {
         >
           Preferencias del servicio
         </button>
+        {/* Eliminar perfil */}
         <button
           className={`px-3 py-2 rounded ${
             section === "delete" ? "bg-gray-800 text-white" : "text-gray-400 hover:text-gray-200"
@@ -85,8 +106,8 @@ export default function ProfileView({ user, onUpdate, onDelete }) {
             <label className="block text-sm text-gray-400 mb-1">Nombre completo</label>
             <input
               type="text"
-              value={formData.name}
-              onChange={(e) => handleChange("name", e.target.value)}
+              value={formData.personal.name || ''}
+              onChange={(e) => handlePersonalChange("name", e.target.value)}
               className="w-full bg-gray-800 rounded p-2 border border-gray-700 focus:outline-none focus:border-rose-600"
             />
           </div>
@@ -95,8 +116,8 @@ export default function ProfileView({ user, onUpdate, onDelete }) {
             <label className="block text-sm text-gray-400 mb-1">Correo electrónico</label>
             <input
               type="email"
-              value={formData.email}
-              onChange={(e) => handleChange("email", e.target.value)}
+              value={formData.personal.email || ''}
+              onChange={(e) => handlePersonalChange("email", e.target.value)}
               className="w-full bg-gray-800 rounded p-2 border border-gray-700 focus:outline-none focus:border-rose-600"
             />
           </div>
@@ -106,8 +127,8 @@ export default function ProfileView({ user, onUpdate, onDelete }) {
               <label className="block text-sm text-gray-400 mb-1">Teléfono</label>
               <input
                 type="text"
-                value={formData.phone}
-                onChange={(e) => handleChange("phone", e.target.value)}
+                value={formData.personal.phone || ''}
+                onChange={(e) => handlePersonalChange("phone", e.target.value)}
                 className="w-full bg-gray-800 rounded p-2 border border-gray-700 focus:outline-none focus:border-rose-600"
               />
             </div>
@@ -115,59 +136,74 @@ export default function ProfileView({ user, onUpdate, onDelete }) {
               <label className="block text-sm text-gray-400 mb-1">Ubicación</label>
               <input
                 type="text"
-                value={formData.location}
-                onChange={(e) => handleChange("location", e.target.value)}
+                value={formData.personal.location || ''}
+                onChange={(e) => handlePersonalChange("location", e.target.value)}
                 className="w-full bg-gray-800 rounded p-2 border border-gray-700 focus:outline-none focus:border-rose-600"
               />
             </div>
+          </div>
+          
+          {/* Nuevo campo para Skills (ejemplo de dato complejo) */}
+          <div className="flex-1">
+            <label className="block text-sm text-gray-400 mb-1">Habilidades (separadas por coma)</label>
+            <input
+                type="text"
+                value={(formData.personal.skills || []).join(', ')}
+                onChange={(e) => handlePersonalChange("skills", e.target.value.split(',').map(s => s.trim()))}
+                placeholder="React, Node.js, AWS"
+                className="w-full bg-gray-800 rounded p-2 border border-gray-700 focus:outline-none focus:border-rose-600"
+            />
           </div>
 
           <button
             type="submit"
             className="mt-4 bg-rose-600 hover:bg-rose-700 text-white font-medium px-4 py-2 rounded flex items-center gap-2"
           >
-            <Save className="w-4 h-4" /> Guardar cambios
+            <Save className="w-4 h-4" /> Guardar información personal
           </button>
         </form>
       )}
 
-      {/* Sección: Preferencias */}
+      {/* Sección: Preferencias del servicio */}
       {section === "prefs" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between bg-gray-800 p-3 rounded">
-            <span>Recibir notificaciones por correo</span>
-            <input
-              type="checkbox"
-              checked={formData.servicePrefs.emailNotifications}
-              onChange={() => handlePrefChange("emailNotifications")}
-              className="accent-rose-600 w-4 h-4"
-            />
-          </div>
-          <div className="flex items-center justify-between bg-gray-800 p-3 rounded">
-            <span>Alertas de nuevos empleos</span>
-            <input
-              type="checkbox"
-              checked={formData.servicePrefs.jobAlerts}
-              onChange={() => handlePrefChange("jobAlerts")}
-              className="accent-rose-600 w-4 h-4"
-            />
-          </div>
-          <div className="flex items-center justify-between bg-gray-800 p-3 rounded">
-            <span>Suscripción al boletín</span>
-            <input
-              type="checkbox"
-              checked={formData.servicePrefs.newsletter}
-              onChange={() => handlePrefChange("newsletter")}
-              className="accent-rose-600 w-4 h-4"
-            />
-          </div>
+        <div className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <h3 className="text-lg font-semibold text-rose-500 pt-2">Notificaciones</h3>
+            <div className="flex items-center justify-between bg-gray-800 p-3 rounded">
+              <span>Recibir notificaciones por correo</span>
+              <input
+                type="checkbox"
+                checked={!!formData.preferences.notifications.email}
+                onChange={() => handlePreferenceChange("notifications", "email")}
+                className="accent-rose-600 w-4 h-4"
+              />
+            </div>
+            <div className="flex items-center justify-between bg-gray-800 p-3 rounded">
+              <span>Recibir notificaciones por WhatsApp (simulado)</span>
+              <input
+                type="checkbox"
+                checked={!!formData.preferences.notifications.whatsapp}
+                onChange={() => handlePreferenceChange("notifications", "whatsapp")}
+                className="accent-rose-600 w-4 h-4"
+              />
+            </div>
+            <div className="flex items-center justify-between bg-gray-800 p-3 rounded">
+              <span>Habilitar filtrado de ofertas basado en tu historial (Feedback)</span>
+              <input
+                type="checkbox"
+                checked={!!formData.preferences.filter.feedbackEnabled}
+                onChange={() => handlePreferenceChange("filter", "feedbackEnabled")}
+                className="accent-rose-600 w-4 h-4"
+              />
+            </div>
 
-          <button
-            onClick={handleSubmit}
-            className="mt-4 bg-rose-600 hover:bg-rose-700 text-white font-medium px-4 py-2 rounded flex items-center gap-2"
-          >
-            <Settings className="w-4 h-4" /> Guardar preferencias
-          </button>
+            <button
+              type="submit"
+              className="mt-4 bg-rose-600 hover:bg-rose-700 text-white font-medium px-4 py-2 rounded flex items-center gap-2"
+            >
+              <Settings className="w-4 h-4" /> Guardar preferencias
+            </button>
+          </form>
         </div>
       )}
 

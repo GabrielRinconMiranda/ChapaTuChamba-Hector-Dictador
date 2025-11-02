@@ -1,13 +1,16 @@
 // src/ChapaTuChamba.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Header from './components/Header.jsx';
 import NotificationPanel from './components/NotificationPanel.jsx';
 import DashboardView from './views/DashboardView.jsx';
 import ProfileView from './views/ProfileView.jsx';
 import SavedJobsView from './views/SavedJobsView.jsx';
-import SearchBar from "./components/SearchBar.jsx";
+// No usamos SearchBar directamente, se usa dentro de DashboardView
+// import SearchBar from "./components/SearchBar.jsx"; 
 import SourcesAdminView from './views/SourcesAdminView.jsx';
 import UsersAdminView from './views/UsersAdminView.jsx';
+import RecoverPasswordView from './views/RecoverPasswordView.jsx'; // NUEVA VISTA
+import CategoriesAdminView from './views/CategoriesAdminView.jsx'; // NUEVA VISTA
 import { getJobs, getSources } from './api/mockServer.js';
 
 
@@ -17,8 +20,10 @@ const STORAGE = {
   JOBS_CACHE: 'ctc_jobs_cache_v1',
   SAVED: 'ctc_saved_jobs_v1',
   PROFILE: 'ctc_profile_v1',
+  APPLICATIONS: 'ctc_applications_v1', // NUEVO STORAGE
 };
 
+// Estructura de perfil actualizada para manejar las especializaciones de Actualizar Perfil
 const fallbackProfile = {
   name: 'Tu Nombre',
   email: '',
@@ -26,8 +31,21 @@ const fallbackProfile = {
   location: '',
   skills: [],
   experience: '',
+  // Especialización 1: Actualizar información personal
+  personal: {
+    name: 'Tu Nombre',
+    email: '',
+    phone: '',
+    location: '',
+    skills: [],
+    experience: '',
+  },
+  // Especialización 2: Actualizar preferencias del servicio
   preferences: {
     notifications: { email: true, whatsapp: false, telegram: false },
+    filter: {
+      feedbackEnabled: true, // NUEVO: Preferencia para el filtrado por feedback
+    }
   },
 };
 
@@ -61,13 +79,29 @@ export default function ChapaTuChamba() {
   });
   const [profile, setProfile] = useState(() => {
     const raw = localStorage.getItem(STORAGE.PROFILE);
-    return raw ? JSON.parse(raw) : fallbackProfile;
+    // Aseguramos que la estructura de perfil tenga las nuevas sub-estructuras
+    const initialProfile = raw ? JSON.parse(raw) : fallbackProfile;
+    return { ...fallbackProfile, ...initialProfile, 
+      personal: { ...fallbackProfile.personal, ...initialProfile.personal },
+      preferences: { ...fallbackProfile.preferences, ...initialProfile.preferences }
+    };
   });
 
   const [notifications, setNotifications] = useState([]);
 
 // --- Jobs ---
   const [jobs, setJobs] = useState([]);
+
+// --- Filter & Admin ---
+  const [categories, setCategories] = useState(() => {
+    const raw = localStorage.getItem('ctc_categories_v1');
+    return raw ? JSON.parse(raw) : ['Desarrollo', 'Diseño', 'Marketing', 'Ventas'];
+  });
+// --- NUEVO: Estado para Postulaciones activas ---
+  const [activeApplications, setActiveApplications] = useState(() => {
+    const raw = localStorage.getItem(STORAGE.APPLICATIONS);
+    return raw ? JSON.parse(raw) : [];
+  });
 
   // --- Login form ---
   const [loginEmail, setLoginEmail] = useState('');
@@ -120,6 +154,48 @@ async function refreshJobs() {
   useEffect(() => {
     localStorage.setItem(STORAGE.PROFILE, JSON.stringify(profile));
   }, [profile]);
+  // Persistencia de Categorías y Postulaciones
+  useEffect(() => {
+    localStorage.setItem('ctc_categories_v1', JSON.stringify(categories));
+  }, [categories]);
+  useEffect(() => {
+    localStorage.setItem(STORAGE.APPLICATIONS, JSON.stringify(activeApplications));
+  }, [activeApplications]);
+
+
+  // --- NUEVO: Lógica del Temporizador (Filtrar ofertas según tiempo de expiración) ---
+  useEffect(() => {
+    const checkExpiration = () => {
+      // Simulación de que los trabajos de ID par/impar "expiran" alternativamente
+      setJobs(prevJobs => {
+        // En un sistema real: `prevJobs.filter(j => new Date(j.expiresAt) > new Date())`
+        const remainingJobs = prevJobs.filter((j, index) => index % 3 !== 0);
+        
+        const expiredCount = prevJobs.length - remainingJobs.length;
+        if (expiredCount > 0) {
+           setNotifications((prev) => [
+            {
+              id: Date.now() + 1,
+              title: 'Limpieza Automática',
+              message: `${expiredCount} ofertas expiradas eliminadas del sistema.`,
+              time: 'Automático',
+              unread: true,
+            },
+            ...prev,
+          ]);
+        }
+        localStorage.setItem(STORAGE.JOBS_CACHE, JSON.stringify(remainingJobs));
+        return remainingJobs;
+      });
+    };
+
+    // Correr cada 60 minutos (3,600,000 ms) - O 1 minuto para pruebas: 60000
+    const intervalId = setInterval(checkExpiration, 3600000); 
+
+    // Función de limpieza
+    return () => clearInterval(intervalId);
+  }, [jobs]);
+
 
   // --- Autenticación ---
   function handleLogin(email, pass) {
@@ -155,6 +231,14 @@ async function refreshJobs() {
     setCurrentView('login');
   }
 
+  // --- NUEVO: Lógica para Recuperar contraseña (Caso de Uso Extend) ---
+  function handleRecoverPassword(email) {
+    if (!email) return alert('Ingresa tu email para recuperar la contraseña.');
+    alert(`Instrucciones enviadas a ${email}. ¡Revisa tu bandeja! (Simulación)`);
+    setLoginEmail(email);
+    setCurrentView('login');
+  }
+
   // --- Fuentes (administrador) ---
   function addSource(src) {
     const item = {
@@ -180,9 +264,8 @@ async function verifySource(s) {
     if (['remotive', 'remoteok'].includes(s.type)) {
       result = await getJobs(); // traer reales + simuladas
     } else {
-      const res = await fetch(s.url);
-      const json = await res.json();
-      if (Array.isArray(json)) result = json;
+      // Simulación de fetch
+      result = [{ id: Date.now() + Math.random(), title: `Job de ${s.name}`, company: s.name, source: s.name }]
     }
 
     setSources((prev) =>
@@ -232,6 +315,21 @@ async function verifySource(s) {
     );
   }
 
+  // --- NUEVO: Administración de Categorías (Caso de Uso: Categorizar para el filtrado) ---
+  function addCategory(name) {
+    if (name && !categories.includes(name)) {
+      setCategories((prev) => [...prev, name]);
+      setNotifications((prev) => [{ id: Date.now(), title: 'Categoría Añadida', message: `${name} agregada.`, time: 'Ahora', unread: true }, ...prev]);
+    }
+  }
+
+  function removeCategory(name) {
+    if (window.confirm(`Eliminar categoría ${name}?`)) {
+      setCategories((prev) => prev.filter((c) => c !== name));
+      setNotifications((prev) => [{ id: Date.now(), title: 'Categoría Eliminada', message: `${name} eliminada.`, time: 'Ahora', unread: true }, ...prev]);
+    }
+  }
+
   // --- Usuarios (admin) ---
   function createUser(data) {
     const u = { id: Date.now().toString(), ...data, suspended: false };
@@ -260,7 +358,7 @@ async function verifySource(s) {
     if (user?.id === u.id) handleLogout();
   }
 
-  // --- Empleos ---
+  // --- Empleos (Guardar es diferente a Postular) ---
   function saveJob(id) {
     setSavedJobs((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [id, ...prev]
@@ -270,22 +368,135 @@ async function verifySource(s) {
   function removeSaved(id) {
     setSavedJobs((prev) => prev.filter((x) => x !== id));
   }
+  
+  // --- NUEVO: Funciones de Postulación ---
+  function handleApplyJob(jobId) {
+    if (!user) return alert('Debes iniciar sesión para postular.');
+    if (activeApplications.some(app => app.jobId === jobId)) {
+        return alert('Ya postulaste a esta oferta.');
+    }
+
+    // Caso de Uso: Postular a una oferta
+    const newApplication = {
+        id: Date.now().toString(),
+        jobId: jobId,
+        userId: user.id,
+        date: new Date().toISOString(),
+        status: 'Pendiente',
+    };
+    setActiveApplications((prev) => [newApplication, ...prev]);
+    setNotifications((prev) => [{ id: Date.now(), title: 'Postulación Exitosa', message: 'Tu postulación ha sido enviada.', time: 'Ahora', unread: true }, ...prev]);
+  }
+
+  function handleUpdateApplication(applicationId, newStatus) {
+    // Caso de Uso: Actualizar postulación
+    setActiveApplications((prev) => prev.map(app => 
+        app.id === applicationId ? { ...app, status: newStatus, date: new Date().toISOString() } : app
+    ));
+    setNotifications((prev) => [{ id: Date.now(), title: 'Postulación Actualizada', message: `El estado de tu postulación ha cambiado a ${newStatus}.`, time: 'Ahora', unread: true }, ...prev]);
+  }
+
+  function handleRemoveApplication(applicationId) {
+    if (!window.confirm('¿Deseas eliminar esta postulación?')) return;
+     // Caso de Uso: Eliminar postulación
+    setActiveApplications((prev) => prev.filter(app => app.id !== applicationId));
+    setNotifications((prev) => [{ id: Date.now(), title: 'Postulación Eliminada', message: 'Has retirado tu postulación.', time: 'Ahora', unread: true }, ...prev]);
+  }
+
 
   // --- Perfil ---
   function updateProfile(newProfile) {
+    // Casos de Uso: Actualizar información personal / Actualizar preferencias del servicio (Generalización)
     setProfile(newProfile);
+    setNotifications((prev) => [
+      {
+        id: Date.now(),
+        title: 'Perfil actualizado',
+        message: 'Tu perfil ha sido guardado exitosamente.',
+        time: 'Ahora',
+        unread: true,
+      },
+      ...prev,
+    ]);
   }
 
-  // --- Filtro de búsqueda ---
-  const visibleJobs = jobs.filter((j) => {
-    const q = searchTerm.trim().toLowerCase();
-    return (
-      !q ||
-      (j.title || '').toLowerCase().includes(q) ||
-      (j.company || '').toLowerCase().includes(q) ||
-      (j.source || '').toLowerCase().includes(q)
-    );
-  });
+  // --- NUEVO: Lógica para Eliminar perfil ---
+  function handleDeleteProfile() {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar tu perfil permanentemente?')) return;
+    
+    // Caso de Uso: Eliminar perfil
+    setUsers((prev) => prev.filter((x) => x.id !== user.id));
+    localStorage.removeItem(STORAGE.SAVED);
+    localStorage.removeItem(STORAGE.PROFILE);
+    localStorage.removeItem(STORAGE.APPLICATIONS); // Limpiar postulaciones
+    handleLogout();
+
+    setNotifications((prev) => [
+      {
+        id: Date.now(),
+        title: 'Perfil Eliminado',
+        message: 'Tu cuenta ha sido eliminada del sistema.',
+        time: 'Ahora',
+        unread: true,
+      },
+      ...prev,
+    ]);
+  }
+
+
+  // --- NUEVO: Sub-caso de uso "Filtrar ofertas según feedback" ---
+  const filterByFeedback = useCallback((job, userSavedJobs) => {
+    // Si el filtrado por feedback está desactivado en preferencias, pasa el filtro.
+    if (!profile.preferences.filter.feedbackEnabled) {
+      return true;
+    }
+    
+    // Si la oferta ha sido guardada (feedback positivo) o aplicada, pasa el filtro.
+    if (userSavedJobs.includes(job.id) || activeApplications.some(app => app.jobId === job.id)) {
+      return true;
+    }
+
+    // Simulación de descarte: si la oferta es de una fuente no verificada y es de bajo nivel.
+    const jobSource = sources.find(s => s.name === job.source);
+    if (jobSource && !jobSource.verified && (job.level || '').toLowerCase() === 'junior') {
+      return false; 
+    }
+
+    return true; // Pasa la prueba de feedback
+  }, [profile.preferences.filter.feedbackEnabled, sources, activeApplications]);
+
+
+  // --- MODIFICADO: Filtro de búsqueda (usando useMemo y lógica de casos de uso) ---
+  const visibleJobs = useMemo(() => {
+    return jobs.filter((j) => {
+      const q = searchTerm.trim().toLowerCase();
+      
+      // 1. Filtro por palabra clave
+      const keywordMatch =
+        !q ||
+        (j.title || '').toLowerCase().includes(q) ||
+        (j.company || '').toLowerCase().includes(q) ||
+        (j.source || '').toLowerCase().includes(q);
+      
+      if (!keywordMatch) return false;
+
+      // 2. Filtro según perfil (simulado)
+      if (user) {
+        // Ejemplo de filtrado por categoría (requiere que los jobs tengan category)
+        // const categoryMatch = selectedCategory ? (j.category === selectedCategory) : true;
+
+        // 3. Aplicación del sub-caso de uso "Filtrar ofertas según feedback"
+        if (!filterByFeedback(j, savedJobs)) {
+          return false;
+        }
+        
+        // El filtro según tiempo de expiración se maneja limpiando la lista 'jobs' con el useEffect del 'Temporizador'.
+      }
+
+      return true;
+    });
+  }, [jobs, searchTerm, user, savedJobs, filterByFeedback]);
+
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
@@ -331,6 +542,13 @@ async function verifySource(s) {
               Demo admin
             </button>
           </div>
+          {/* NUEVO: Botón para el caso de uso Extend: Recuperar contraseña */}
+          <button
+            onClick={() => setCurrentView('recoverPassword')}
+            className="text-xs text-rose-500 hover:text-rose-400 mt-3 block w-full text-center"
+          >
+            ¿Olvidaste tu contraseña?
+          </button>
           <p className="text-xs text-gray-500 mt-3">
             Usa un correo con <code>@admin</code> o el modo demo.
           </p>
@@ -338,6 +556,18 @@ async function verifySource(s) {
       </div>
     );
   }
+
+  // NUEVO: Vista de Recuperación de Contraseña
+  if (currentView === 'recoverPassword') {
+    return (
+      <RecoverPasswordView 
+        initialEmail={loginEmail}
+        onRecover={handleRecoverPassword}
+        onCancel={() => setCurrentView('login')}
+      />
+    );
+  }
+
 
   // --- Vista principal ---
   return (
@@ -369,19 +599,30 @@ async function verifySource(s) {
             savedJobs={savedJobs}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
+            // NUEVO: Pasar lógica de postulación
+            onApply={handleApplyJob}
           />
         )}
 
+        {/* MODIFICADO: SavedJobsView ahora muestra Guardados Y Postulaciones Activas */}
         {currentView === 'saved' && (
           <SavedJobsView
             savedIds={savedJobs}
             jobs={jobs}
-            onRemove={removeSaved}
+            onRemoveSaved={removeSaved}
+            // NUEVO: Pasar datos de postulaciones
+            activeApplications={activeApplications}
+            onRemoveApplication={handleRemoveApplication}
+            onUpdateApplication={handleUpdateApplication}
           />
         )}
 
         {currentView === 'profile' && (
-          <ProfileView profile={profile} onUpdate={updateProfile} />
+          <ProfileView 
+            profile={profile} 
+            onUpdate={updateProfile} 
+            onDelete={handleDeleteProfile} // NUEVO: Pasar función para Eliminar perfil
+          />
         )}
 
         {currentView === 'sources' && user?.role === 'admin' && (
@@ -391,6 +632,14 @@ async function verifySource(s) {
             onRemove={removeSource}
             onVerify={verifySource}
             onToggleTrust={toggleTrust}
+          />
+        )}
+
+        {currentView === 'categories' && user?.role === 'admin' && (
+          <CategoriesAdminView // NUEVA VISTA
+            categories={categories}
+            onAdd={addCategory}
+            onRemove={removeCategory}
           />
         )}
 
@@ -404,7 +653,7 @@ async function verifySource(s) {
           />
         )}
 
-        {(currentView === 'sources' || currentView === 'users') &&
+        {(currentView === 'sources' || currentView === 'users' || currentView === 'categories') &&
           user?.role !== 'admin' && (
             <div className="bg-gray-900 p-6 rounded border border-gray-800 text-center">
               <div className="text-lg font-semibold">Acceso denegado</div>
